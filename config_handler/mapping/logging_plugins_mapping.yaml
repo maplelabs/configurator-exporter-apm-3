@@ -1,0 +1,727 @@
+# mysql logging mapping
+mysql-error:
+  source:
+    '@type': tail
+    path: '/var/log/mysql/error.log, /var/log/mysql/mysql-error.log, /var/log/mysqld.err'
+    pos_file: '/var/log/td-agent/mysql-error.pos'
+#    format: '/(?<time>[^ ]* [^ ]*)\s*\[(?<level>\S+)\]\s(?<message>.*)$/'
+#    format: 'multi_format'
+#    time_format: '%Y-%m-%d %H:%M:%S'
+#    formats:
+#     - '/(?<time>[^ ]* [^ ]*)\s*\[(?<level>\S+)\]\s(?<message>.*)$/'
+#     - '/(?<time>[^ ]* [^ ]*)\s*(?<message>.*)$/'
+  parse:
+    '@type': multi_format
+    expressions:
+     - '/(?<time>[^ ]* [^ ]*)\s*(?<id>\d*)\s*\[(?<level>\S+)\]\s(?<message>.*)$/'
+     - '/(?<time>[^ ]* [^ ]*)\s*\[(?<level>\S+)\]\s(?<message>.*)$/'
+     - '/(?<time>[^ ]* [^ ]*)\s*(?<message>.*)$/'
+  transform:
+    node: '#{Socket.gethostname}'
+    time: ${require 'time'; time.to_time.to_i * 1000}
+    file: '${tag_suffix[1]}'
+    _plugin: 'mysql'
+    _documentType: 'mysqlErrorLogs'
+    level: ${n_level='info'; if record['level'] == nil then n_level else record['level'].downcase end}
+  match:
+    flush_interval: 30s
+
+tomcat-logger:
+  collection_type: metric
+  geotag:
+    geoip2_database: /usr/share/GeoLite2-City/GeoLite2-City.mmdb
+    geoip_lookup_keys: host
+  match:
+    flush_interval: 30s
+  parse:
+    '@type': multi_format
+    expressions:
+    - '/^(?<host>((\d)*(\.)+(\d)*(\.)+(\d)*(\.)+(\d)*)) ([\-](?<user>[\w\ ]*)[\-]) \[(?<time>[^\]]*)\] "(?<method>\S+)(?: +(?<path>[^ ]*) +\S*)?" (?<code>[^ ]*) (?<size>[^ ]*) (?<response_time>[^ ]*) (?<agent>(\S*\s\((?<BrowserOS>[^\s;]*).*\)\s(?<browserField1>\w*)\/[\d.]*\s(?:(?<mobile>Mobile)[\/\S.]*\s)?(?<browserField2>[\w\s]*)\/[\d.]*\s?(?:(?<browserField3>\w*)\/[\d.]*)?)|(.*)).*$/'
+    time_format: '%d/%b/%Y:%H:%M:%S %z'
+    types: response_time:integer, size:float
+  source:
+    '@type': tail
+    path: /opt/tomcat/apache-tomcat-9.0.29/logs/localhost_access_log*.txt
+    pos_file: /var/log/td-agent/tomcat.pos
+  transform:
+    _documentType: tomcatLogs
+    _plugin: tomcat-logger
+    file: ${tag_suffix[1]}
+    message: ${record['message']}
+    node: '#{Socket.gethostname}'
+    time: ${require 'time'; time.to_time.to_i * 1000}
+
+mysql-general:
+  collection_type: metric
+  source:
+    '@type': tail
+    path: '/var/log/mysql/mysql.log, /var/log/mysql.log, /var/log/mysqld.log'
+    pos_file: '/var/log/td-agent/mysql-general-query.pos'
+#    format: '/(?<time>[^ ]* [^ ]*)\s*(?<id>\S+)\s(?<command>[^ ]*)\s(?<argument>[^\t].*)$/'
+#    format: 'multi_format'
+#    formats:
+#     - '/(?<time>[^ ]* [^ ]*)\s*(?<id>\S+)\s(?<command>[^ ]*)\s(?<argument>[^\t].*)$/'
+#     - '/\"(?<time>[^\]]*)\"\W+(?<user1>\S+)\W+(?<user2>\w+)\W+(?<host>\w+)\W+(?<IP>(\d+\.\d+\.\d+\.\d+))\W+(?<pid1>\d+)\W+(?<pid2>\d+)\W+(?<command>.\w*)\W+(?<argument>.*)\"/'
+#     - '/\"(?<time>[^\]]*)\"\W+(?<user1>\S+)\W+(?<user2>\w+)\W+(?<host>\w+)\W+(?<pid1>\d+)\W+(?<pid2>\d+)\W+(?<command>.\w*)\W+(?<argument>.*)\"/'
+#     time_format: '%Y-%m-%d %H:%M:%S'
+#     keep_time_key: 'true'
+  parse:
+    '@type': multi_format
+    expressions:
+     - '/^\s+(?<id>\S+)\s(?<command>[^\s\d]*)\s(?<argument>[^\t].*)$/'
+     - '/(?<event_time>[\d]+\s*[^\s]*)\s*(?<id>\d+)\s(?<command>[^\s]*)\s(?<argument>[^\t].*)$/'
+     - '/\"(?<event_time>[^\]]*)\"\W+(?<user1>\S+)\W+(?<user2>\w+)\W+(?<host>\w+)\W+(?<IP>(\d+\.\d+\.\d+\.\d+))\W+(?<pid1>\d+)\W+(?<pid2>\d+)\W+(?<command>.\w*)\W+(?<argument>.*)\"/'
+     - '/\"(?<event_time>[^\]]*)\"\W+(?<user1>\S+)\W+(?<user2>\w+)\W+(?<host>\w+)\W+(?<pid1>\d+)\W+(?<pid2>\d+)\W+(?<command>.\w*)\W+(?<argument>.*)\"/'
+  transform:
+    node: '#{Socket.gethostname}'
+    time: ${require 'time'; time.to_time.to_i * 1000}
+    file: '${tag_suffix[1]}'
+    _plugin: 'mysql'
+    _documentType: 'mysqlAccessLogs'
+    level: 'info'
+    message: ''
+  match:
+    flush_interval: 30s
+
+# mysql slow query log
+mysql-slowquery:
+  collection_type: metric
+  source:
+    '@type': tail
+    path: '/var/lib/mysql/ip-*slow.log'
+    pos_file: '/var/log/td-agent/mysql-slowquery.pos'
+  multiline:
+    format_firstline: '/#\sTime:/'
+    expression:
+    - '/^#\sTime:\s(?<time>[^#]*)\n#\sUser@Host:\s(?<userHost>[^#]*)\n#\sQuery_time:\s(?<query_time>[^\s]*)\s*Lock_time:\s(?<lock_time>[^\s]*)\s*Rows_sent:\s(?<rows_sent>[^\s]*)\s*Rows_examined:\s(?<rows_examined>[^\s]*)\s*SET\stimestamp=(?<timestamp>[^;]*);\n(?<query>[^;]*);$/'
+    types: 'query_time:float, lock_time:float, rows_sent:integer, rows_examined:integer'
+  transform:
+    node: '#{Socket.gethostname}'
+    time: ${require 'time'; time.to_time.to_i * 1000}
+    file: '${tag_suffix[1]}'
+    _plugin: 'mysql'
+    _documentType: 'mysqlSlowQueryLogs'
+    level: 'info'
+  match:
+    flush_interval: 30s
+
+#mysql-slow:
+#  source:
+#    '@type': mysql_slow_query
+#    path: '/var/log/mysql/mysql-slow.log'
+#  filter:
+#    node: '#{Socket.gethostname}'
+#    time: ${require 'time'; time.to_time.to_f}
+#    file: '${tag_suffix[1]}'
+#    _plugin: 'mysql'
+#    _documentType: 'slow-query'
+#  match:
+#    flush_interval: 30s
+
+# apache logging mapping
+apache-error:
+   source:
+     '@type': tail
+#     format: apache_error
+#     keep_time_key: 'true'
+     path: '/var/log/apache2/error.log, /var/log/httpd/error_log'
+     pos_file: '/var/log/td-agent/apache_error.pos'
+   parse:
+     '@type': apache_error
+   transform:
+     node: '#{Socket.gethostname}'
+#       time: '#{Time.now.to_f}'
+     file: '${tag_suffix[1]}'
+     _plugin: 'apache'
+     _documentType: 'apacheError'
+     time: ${require 'time'; time.to_time.to_i * 1000}
+     component: ${record['level'].split(':').first()}
+#     level: ${record['level'].split(':').last()}
+     level: ${n_level='warning'; if record['level'].split(':').last().downcase == 'warn' then n_level else record['level'].split(':').last().downcase end}
+   match:
+     flush_interval: 30s
+apache-access:
+   collection_type: metric
+   source:
+     '@type': tail
+#     format: '/^(?<host>[^ ]*) [^ ]* (?<user>[^ ]*) \[(?<time>[^\]]*)\] "(?<method>\S+)(?: +(?<path>[^ ]*) +\S*)?" (?<code>[^ ]*) (?<size>[^ ]*)(?: "(?<referer>[^\"]*)" "(?<agent>[^\"]*)" (?<response_time>[^ ]*))?$/'
+#     time_format: '%d/%b/%Y:%H:%M:%S %z'
+#     keep_time_key: 'true'
+     path: '/var/log/apache2/access.log, /var/log/httpd/access_log, /var/log/apache2/access_log, /var/log/httpd/access.log'
+     pos_file: '/var/log/td-agent/apache_access.pos'
+   parse:
+     '@type': multi_format
+     time_format: '%d/%b/%Y:%H:%M:%S %z'
+     expressions:
+       - /^(?<host>[^\s]*(?:\s+[^\s]+)*)\s[\-](?<user>[\w\s]*)[\-]\s\[(?<time>[^\]]*)\]\s"(?<method>\S+)\s(?<path1>\/.*)(?<id1>\/\d+\/)(?<path2>.+)(?<id2>\/\d+(?<pattern1>\/*))\s(?<header>[^\s]*)\"\s(?<code>[^\s]*)\s(?<size>[^\s]*)\s(?:"(?<referer>[^\"]*)"\s"(?<agent>(\S*\s\((?<BrowserOS>[^\s;]*).*\)\s(?<browserField1>\w*)\/[\d.]*\s(?:(?<mobile>Mobile)[\/\S.]*\s)?(?<browserField2>[\w\s]*)\/[\d.]*\s?(?:(?<browserField3>\w*)\/[\d.]*)?)|(.*))"\s(?:(|)(?<response_time>[^\s]*)))?$/
+       - /^(?<host>[^\s]*(?:\s+[^\s]+)*)\s[\-](?<user>[\w\s]*)[\-]\s\[(?<time>[^\]]*)\]\s"(?<method>\S+)\s(?<path1>\/.*)(?<id1>\/\d+\/)(?<path2>.+)(?<id2>\/\d+(?<pattern2>\/))(?<path3>.*)\s(?<header>[^\s]*)\"\s(?<code>[^\s]*)\s(?<size>[^\s]*)\s(?:"(?<referer>[^\"]*)"\s"(?<agent>(\S*\s\((?<BrowserOS>[^\s;]*).*\)\s(?<browserField1>\w*)\/[\d.]*\s(?:(?<mobile>Mobile)[\/\S.]*\s)?(?<browserField2>[\w\s]*)\/[\d.]*\s?(?:(?<browserField3>\w*)\/[\d.]*)?)|(.*))"\s(?:(|)(?<response_time>[^\s]*)))?$/
+       - /^(?<host>[^\s]*(?:\s+[^\s]+)*)\s[\-](?<user>[\w\s]*)[\-]\s\[(?<time>[^\]]*)\]\s"(?<method>\S+)\s(?<path1>\/.*)(?<id>\/\d+(?<pattern3>\/*))\s(?<header>[^\s]*)\"\s(?<code>[^\s]*)\s(?<size>[^\s]*)\s(?:"(?<referer>[^\"]*)"\s"(?<agent>(\S*\s\((?<BrowserOS>[^\s;]*).*\)\s(?<browserField1>\w*)\/[\d.]*\s(?:(?<mobile>Mobile)[\/\S.]*\s)?(?<browserField2>[\w\s]*)\/[\d.]*\s?(?:(?<browserField3>\w*)\/[\d.]*)?)|(.*))"\s(?:(|)(?<response_time>[^\s]*)))?$/
+       - /^(?<host>[^\s]*(?:\s+[^\s]+)*)\s[\-](?<user>[\w\s]*)[\-]\s\[(?<time>[^\]]*)\]\s"(?<method>\S+)\s(?<path1>\/.*)(?<id>\/\d+(?<pattern4>\/))(?<path2>.*)\s(?<header>[^\s]*)\"\s(?<code>[^\s]*)\s(?<size>[^\s]*)\s(?:"(?<referer>[^\"]*)"\s"(?<agent>(\S*\s\((?<BrowserOS>[^\s;]*).*\)\s(?<browserField1>\w*)\/[\d.]*\s(?:(?<mobile>Mobile)[\/\S.]*\s)?(?<browserField2>[\w\s]*)\/[\d.]*\s?(?:(?<browserField3>\w*)\/[\d.]*)?)|(.*))"\s(?:(|)(?<response_time>[^\s]*)))?$/
+       - /^(?<host>[^\s]*(?:\s+[^\s]+)*)\s[\-](?<user>[\w\s]*)[\-]\s\[(?<time>[^\]]*)\]\s"(?<method>\S+)\s(?<path1>\/.*)(?<id>\/\d+(?<pattern3>\/*))\?([^\s]*)\s(?<header>[^\s]*)\"\s(?<code>[^\s]*)\s(?<size>[^\s]*)\s(?:"(?<referer>[^\"]*)"\s"(?<agent>(\S*\s\((?<BrowserOS>[^\s;]*).*\)\s(?<browserField1>\w*)\/[\d.]*\s(?:(?<mobile>Mobile)[\/\S.]*\s)?(?<browserField2>[\w\s]*)\/[\d.]*\s?(?:(?<browserField3>\w*)\/[\d.]*)?)|(.*))"\s(?:(|)(?<response_time>[^\s]*)))?$/
+       - /^(?<host>[^\s]*(?:\s+[^\s]+)*)\s[\-](?<user>[\w\s]*)[\-]\s\[(?<time>[^\]]*)\]\s"(?<method>\S+)\s(?<path>[^"]*)\?([^\s]*)\s(?<header>[^\s]*)\"\s(?<code>[^\s]*)\s(?<size>[^\s]*)\s(?:"(?<referer>[^\"]*)"\s"(?<agent>(\S*\s\((?<BrowserOS>[^\s;]*).*\)\s(?<browserField1>\w*)\/[\d.]*\s(?:(?<mobile>Mobile)[\/\S.]*\s)?(?<browserField2>[\w\s]*)\/[\d.]*\s?(?:(?<browserField3>\w*)\/[\d.]*)?)|(.*))"\s(?:(|)(?<response_time>[^\s]*)))?$/
+       - /^(?<host>[^\s]*(?:\s+[^\s]+)*)\s[\-](?<user>[\w\s]*)[\-]\s\[(?<time>[^\]]*)\]\s"(?<method>\S+)\s(?<path>[^"]*)\s(?<header>[^\s]*)\"\s(?<code>[^\s]*)\s(?<size>[^\s]*)\s(?:"(?<referer>[^\"]*)"\s"(?<agent>(\S*\s\((?<BrowserOS>[^\s;]*).*\)\s(?<browserField1>\w*)\/[\d.]*\s(?:(?<mobile>Mobile)[\/\S.]*\s)?(?<browserField2>[\w\s]*)\/[\d.]*\s?(?:(?<browserField3>\w*)\/[\d.]*)?)|(.*))"\s(?:(|)(?<response_time>[^\s]*)))?$/
+     types: 'response_time:integer, size:float'
+   transform:
+     node: '#{Socket.gethostname}'
+#       time: '#{Time.now.to_f}'
+     file: '${tag_suffix[1]}'
+     _plugin: 'apache'
+     _documentType: 'apacheAccess'
+     time: ${require 'time'; time.to_time.to_i * 1000}
+     level: 'info'
+     path: ${if record['path'] != nil then record['path'] elsif record['pattern4'] != nil then record['path1'] + '/[id]' + record['pattern4'] + record['path2'] elsif record['pattern3'] != nil then record['path1'] + '/[id]' + record['pattern3'] elsif record['pattern2'] != nil then record['path1'] + '/[id]/' + record['path2'] + '/[id]' + record['pattern2'] + record['path3'] else record['path1'] + '/[id]/' + record['path2'] + '/[id]' + record['pattern1'] end}
+     browser: ${if record['browserField1'] == nil then record['agent'] elsif record['browserField3'] != nil then record['browserField3'] elsif record['browserField1'] == 'Chrome' then record['browserField1'] else record['browserField2'] end}
+   geotag:
+     geoip_lookup_keys: host
+     geoip2_database: /usr/share/GeoLite2-City/GeoLite2-City.mmdb
+   match:
+     flush_interval: 30s
+
+# libvirt log mapping
+#libvirt:
+#  source:
+#    '@type': tail
+#    path: '/var/log/libvirt/libvitd.log, /var/log/libvirt/*/*.log'
+#    read_from_head: true
+#    pos_file: '/var/log/td-agent/libvritd.pos'
+#    refresh_interval: 2s
+#  filter:
+#    node: '#{Socket.gethostname}'
+#    time: '#{Time.now.to_f}'
+#    file: '${tag_suffix[1]}'
+#  match:
+#    flush_interval: 120s
+
+# syslog mapping
+linux-syslog:
+  source:
+    '@type': tail
+    path: '/var/log/syslog, /var/log/auth.log, /var/log/messages, /var/log/secure'
+    pos_file: '/var/log/td-agent/syslog.pos'
+  rewrite_tag_filter:
+#    tag: 'process'
+ #   python: '(?<time>[^ ]*\s*[^ ]* [^ ]*) (?<host>[^ ]*) (?<ident>(python))'
+    clear: '(?<time>[^ ]*\s*[^ ]* [^ ]*) (?<host>[^ ]*) (?<ident>(collectd)|(python))'
+    extra_data: '(?<time>[^ ]*\s*[^ ]* [^ ]*) (?<host>[^ ]*) (?<ident>.*)'
+  parse:
+    extra_data:
+     '@type': multi_format
+     expressions:
+      - '(?<time>[^ ]*\s*[^ ]* [^ ]*) (?<host>[^ ]*) (?<ident>[^:\[]*)(?:\[(?<pid>[0-9]+)\])?(?:[^\:]*\:)? \[(?<level>[^\]][\A-z]+)\] (?<message>.+)'
+      - '(?<time>[^ ]*\s*[^ ]* [^ ]*) (?<host>[^ ]*) (?<ident>[^:\[]*)(?:\[(?<pid>[0-9]+)\])?(?:[^\:]*\:)? (?<level>(error)|(warning))\: (?<message>.*)'
+      - '(?<time>[^ ]*\s*[^ ]* [^ ]*) (?<host>[^ ]*) (?<ident>[^:\[]*)(?:\[(?<pid>[0-9]+)\])?(?:[^\:]*\:)? (?<message>.*)'
+  transform:
+    node: '#{Socket.gethostname}'
+    _plugin: 'linux'
+    _documentType: 'syslog'
+    file: '${tag_suffix[2]}'
+    host: ${record['host']}
+    ident: ${record['ident']}
+    level: ${n_level='info'; if record.key?('level') == nil or record['level'] == nil then n_level else record['level'].strip() end}
+    pid: ${record['pid']}
+    time: ${require 'time'; time.to_time.to_i * 1000}
+  match:
+    flush_interval: 30s
+
+default_flush_interval: 60s
+
+
+nginx-error:
+   source:
+     '@type': tail
+     format: nginx
+     path: '/var/log/nginx/error.log'
+     pos_file: '/var/log/td-agent/nginx_error.pos'
+   parse:
+     '@type': regexp
+     time_format: '%Y/%m/%d %H:%M:%S'
+     expression: '(?<time>[^ ]* [^ ]*)\s*\[(?<level>\S+)\]\s*(?<pid>\d+)#(?<tid>\d+)\:\s*(?<message>.*)$'
+   transform:
+     node: '#{Socket.gethostname}'
+     file: '${tag_suffix[1]}'
+     _plugin: 'nginx'
+     _documentType: 'nginxErrorLogs'
+     level: ${n_level='error'; if record['level'] == 'emerg' then n_level else record['level'] end}
+     time: ${require 'time'; time.to_time.to_i * 1000}
+   match:
+     flush_interval: 30s
+
+#NGINX access logging mapping
+nginx-access:
+  collection_type: metric
+  source:
+    '@type': tail
+    path: '/var/log/nginx/access.log'
+    pos_file: '/var/log/td-agent/nginx_access.pos'
+  parse:
+    '@type': multi_format
+    time_format: '%d/%b/%Y:%H:%M:%S %z'
+    expressions:
+    - '/^(?<host>[^ ]*)\s(?<user>[^ ]*)\s\[(?<time>[^\]]*)\]\s\"(?<method>[^ ]*)\s(?<path1>\/.*)(?<id1>\/\d+\/)(?<path2>.+)(?<id2>\/\d+(?<pattern1>\/*))\s(?<header>[^ ]*)\"\s(?<code>[^ ]*)\s(?<size>[^ ]*)\s\"(?<referer>[^"]*)\"\s\"(?<agent>(\S*\s\((?<BrowserOS>[^\s;]*).*\)\s(?<browserField1>\w*)\/[\d.]*\s(?:(?<mobile>Mobile)[\/\S.]*\s)?(?<browserField2>[\w\s]*)\/[\d.]*\s?(?:(?<browserField3>\w*)\/[\d.]*)?)|(.*))\"\s\"(?<referer2>[^"]*)\"\s(rt=(?<request_time>[^ ]*))\s(uct=(?<upstream_connect_time>[^ ]*))\s(uht=(?<upstream_header_time>[^ ]*))\s(urt=(?<upstream_response_time>[^ ]*))$/'
+    - '/^(?<host>[^ ]*)\s(?<user>[^ ]*)\s\[(?<time>[^\]]*)\]\s\"(?<method>[^ ]*)\s(?<path1>\/.*)(?<id1>\/\d+\/)(?<path2>.+)(?<id2>\/\d+(?<pattern1>\/*))\?[^\s]*\s(?<header>[^ ]*)\"\s(?<code>[^ ]*)\s(?<size>[^ ]*)\s\"(?<referer>[^"]*)\"\s\"(?<agent>(\S*\s\((?<BrowserOS>[^\s;]*).*\)\s(?<browserField1>\w*)\/[\d.]*\s(?:(?<mobile>Mobile)[\/\S.]*\s)?(?<browserField2>[\w\s]*)\/[\d.]*\s?(?:(?<browserField3>\w*)\/[\d.]*)?)|(.*))\"\s\"(?<referer2>[^"]*)\"\s(rt=(?<request_time>[^ ]*))\s(uct=(?<upstream_connect_time>[^ ]*))\s(uht=(?<upstream_header_time>[^ ]*))\s(urt=(?<upstream_response_time>[^ ]*))$/'
+    - '/^(?<host>[^ ]*)\s(?<user>[^ ]*)\s\[(?<time>[^\]]*)\]\s\"(?<method>[^ ]*)\s(?<path1>\/.*)(?<id1>\/\d+\/)(?<path2>.+)(?<id2>\/\d+(?<pattern2>\/))(?<path3>[^?]*)(\?[^\s]*)*\s(?<header>[^ ]*)\"\s(?<code>[^ ]*)\s(?<size>[^ ]*)\s\"(?<referer>[^"]*)\"\s\"(?<agent>(\S*\s\((?<BrowserOS>[^\s;]*).*\)\s(?<browserField1>\w*)\/[\d.]*\s(?:(?<mobile>Mobile)[\/\S.]*\s)?(?<browserField2>[\w\s]*)\/[\d.]*\s?(?:(?<browserField3>\w*)\/[\d.]*)?)|(.*))\"\s\"(?<referer2>[^"]*)\"\s(rt=(?<request_time>[^ ]*))\s(uct=(?<upstream_connect_time>[^ ]*))\s(uht=(?<upstream_header_time>[^ ]*))\s(urt=(?<upstream_response_time>[^ ]*))$/'
+    - '/^(?<host>[^ ]*)\s(?<user>[^ ]*)\s\[(?<time>[^\]]*)\]\s\"(?<method>[^ ]*)\s(?<path1>\/.*)(?<id>\/\d+(?<pattern3>\/*))\s(?<header>[^ ]*)\"\s(?<code>[^ ]*)\s(?<size>[^ ]*)\s\"(?<referer>[^"]*)\"\s\"(?<agent>(\S*\s\((?<BrowserOS>[^\s;]*).*\)\s(?<browserField1>\w*)\/[\d.]*\s(?:(?<mobile>Mobile)[\/\S.]*\s)?(?<browserField2>[\w\s]*)\/[\d.]*\s?(?:(?<browserField3>\w*)\/[\d.]*)?)|(.*))\"\s\"(?<referer2>[^"]*)\"\s(rt=(?<request_time>[^ ]*))\s(uct=(?<upstream_connect_time>[^ ]*))\s(uht=(?<upstream_header_time>[^ ]*))\s(urt=(?<upstream_response_time>[^ ]*))$/'
+    - '/^(?<host>[^ ]*)\s(?<user>[^ ]*)\s\[(?<time>[^\]]*)\]\s\"(?<method>[^ ]*)\s(?<path1>\/.*)(?<id>\/\d+(?<pattern3>\/*))(\?[^\s]*)*\s(?<header>[^ ]*)\"\s(?<code>[^ ]*)\s(?<size>[^ ]*)\s\"(?<referer>[^"]*)\"\s\"(?<agent>(\S*\s\((?<BrowserOS>[^\s;]*).*\)\s(?<browserField1>\w*)\/[\d.]*\s(?:(?<mobile>Mobile)[\/\S.]*\s)?(?<browserField2>[\w\s]*)\/[\d.]*\s?(?:(?<browserField3>\w*)\/[\d.]*)?)|(.*))\"\s\"(?<referer2>[^"]*)\"\s(rt=(?<request_time>[^ ]*))\s(uct=(?<upstream_connect_time>[^ ]*))\s(uht=(?<upstream_header_time>[^ ]*))\s(urt=(?<upstream_response_time>[^ ]*))$/'
+    - '/^(?<host>[^ ]*)\s(?<user>[^ ]*)\s\[(?<time>[^\]]*)\]\s\"(?<method>[^ ]*)\s(?<path1>\/.*)(?<id>\/\d+(?<pattern4>\/))(?<path2>[^?]*)(\?[^\s]*)*\s(?<header>[^ ]*)\"\s(?<code>[^ ]*)\s(?<size>[^ ]*)\s\"(?<referer>[^"]*)\"\s\"(?<agent>(\S*\s\((?<BrowserOS>[^\s;]*).*\)\s(?<browserField1>\w*)\/[\d.]*\s(?:(?<mobile>Mobile)[\/\S.]*\s)?(?<browserField2>[\w\s]*)\/[\d.]*\s?(?:(?<browserField3>\w*)\/[\d.]*)?)|(.*))\"\s\"(?<referer2>[^"]*)\"\s(rt=(?<request_time>[^ ]*))\s(uct=(?<upstream_connect_time>[^ ]*))\s(uht=(?<upstream_header_time>[^ ]*))\s(urt=(?<upstream_response_time>[^ ]*))$/'
+    - '/^(?<host>[^ ]*)\s(?<user>[^ ]*)\s\[(?<time>[^\]]*)\]\s\"(?<method>[^ ]*)\s(?<path>[^"]*)\?([^\s]*)\s(?<header>[^ ]*)\"\s(?<code>[^ ]*)\s(?<size>[^ ]*)\s\"(?<referer>[^"]*)\"\s\"(?<agent>(\S*\s\((?<BrowserOS>[^\s;]*).*\)\s(?<browserField1>\w*)\/[\d.]*\s(?:(?<mobile>Mobile)[\/\S.]*\s)?(?<browserField2>[\w\s]*)\/[\d.]*\s?(?:(?<browserField3>\w*)\/[\d.]*)?)|(.*))\"\s\"(?<referer2>[^"]*)\"\s(rt=(?<request_time>[^ ]*))\s(uct=(?<upstream_connect_time>[^ ]*))\s(uht=(?<upstream_header_time>[^ ]*))\s(urt=(?<upstream_response_time>[^ ]*))$/'
+    - '/^(?<host>[^ ]*)\s(?<user>[^ ]*)\s\[(?<time>[^\]]*)\]\s\"(?<method>[^ ]*)\s(?<path>[^"]*)\s(?<header>[^ ]*)\"\s(?<code>[^ ]*)\s(?<size>[^ ]*)\s\"(?<referer>[^"]*)\"\s\"(?<agent>(\S*\s\((?<BrowserOS>[^\s;]*).*\)\s(?<browserField1>\w*)\/[\d.]*\s(?:(?<mobile>Mobile)[\/\S.]*\s)?(?<browserField2>[\w\s]*)\/[\d.]*\s?(?:(?<browserField3>\w*)\/[\d.]*)?)|(.*))\"\s\"(?<referer2>[^"]*)\"\s(rt=(?<request_time>[^ ]*))\s(uct=(?<upstream_connect_time>[^ ]*))\s(uht=(?<upstream_header_time>[^ ]*))\s(urt=(?<upstream_response_time>[^ ]*))$/'
+    'types': request_time:float,upstream_connect_time:float,upstream_header_time:float,upstream_response_time:float,size:integer
+  transform:
+    node: '#{Socket.gethostname}' 
+    file: '${tag_suffix[1]}' 
+    _plugin: 'nginx'
+    _documentType: 'nginxAccessLogs'
+    time: ${require 'time'; time.to_time.to_i * 1000}
+    level: 'info'
+    path: ${if record['path'] != nil then record['path'] elsif record['pattern4'] != nil then record['path1'] + '/[id]' + record['pattern4'] + record['path2'] elsif record['pattern3'] != nil then record['path1'] + '/[id]' + record['pattern3'] elsif record['pattern2'] != nil then record['path1'] + '/[id]/' + record['path2'] + '/[id]' + record['pattern2'] + record['path3'] else record['path1'] + '/[id]/' + record['path2'] + '/[id]' + record['pattern1'] end}
+    browser: ${if record['browserField1'] == nil then record['agent'] elsif record['browserField3'] != nil then record['browserField3'] elsif record['browserField1'] == 'Chrome' then record['browserField1'] else record['browserField2'] end}
+  geotag:
+    geoip_lookup_keys: host
+    geoip2_database: /usr/share/GeoLite2-City/GeoLite2-City.mmdb
+  match:
+    flush_interval: 30s
+
+#postgres logging mapping
+postgres-general:
+  source:
+    '@type': tail
+    path: '/var/lib/pgsql/9.6/data/pg_log/postgresql-Sun.log, /var/lib/pgsql/9.6/data/pg_log/postgresql-Sat.log, /var/lib/pgsql/9.6/data/pg_log/postgresql-Fri.log, /var/lib/pgsql/9.6/data/pg_log/postgresql-Thu.log, /var/lib/pgsql/9.6/data/pg_log/postgresql-Wed.log,  /var/lib/pgsql/9.6/data/pg_log/postgresql-Tue.log, /var/lib/pgsql/9.6/data/pg_log/postgresql-Mon.log, /var/log/postgresql/postgresql-10-main.log'
+    pos_file: '/var/log/td-agent/postgres-general.pos'
+  parse:
+    '@type': regexp
+    expression: '(?<time>[\0-9\a-z]+) (?<level>[\a-z]+\: ) (?<message>.*)'
+  transform:
+    node: '#{Socket.gethostname}'
+    file: '${tag_suffix[1]}'
+    _plugin: 'postgres'
+    _documentType: 'postgresLogs'
+    time: ${require 'time'; time.to_time.to_i * 1000}
+    level: ${record['level'].split(':').first().downcase}
+  match:
+    flush_interval: 30s
+
+#haproxy logging mapping
+haproxy:
+  source:
+    '@type': tail
+    path: '/var/log/haproxy.log'
+    pos_file: '/var/log/td-agent/haproxy.pos'
+  parse:
+    '@type': regexp
+    time_format: '%d/%b/%Y:%H:%M:%S.%L'
+    #expression: '(?<pName>[\w]+)\[(?<pid>[\d]*)\]\:\s(?<clntIp>[\d\.]*)\:(?<port>[\d]*)\s\[(?<time>[^ \]]*)\]\s(?<fename>[^ ]*)\s(?<bename>[^/]*)\/(?<servname>[^ ]*)\s(?<Tq>[\d]*)\/(?<Tw>[\d]*)\/(?<Tc>[\d]*)\/(?<Tr>[\d]*)\/(?<Tt>[\d]*)\s(?<statusCode>[\d]*)\s(?<bread>[\d]*)[^\d]*(?<actconn>[\d]*)\/(?<feconn>[\d]*)\/(?<beconn>[\d]*)\/(?<servconn>[\d]*)\/(?<retries>[\d]*)[^\"]*\"(?<http_req>[^\"]*)'
+    expression: '(?<process>[\w]+)\[(?<processId>[\d]*)\]\:\s(?<clientIp>[\d\.]*)\:(?<port>[\d]*)\s\[(?<time>[^ \]]*)\]\s(?<frontendName>[^ ]*)\s(?<backendName>[^/]*)\/(?<serverName>[^ ]*)\s(?<clntWaitTime>[\d]*)\/(?<queueWaitTime>[\d]*)\/(?<connWaitTime>[\d]*)\/(?<servWaitTime>[\d]*)\/(?<elaspedTime>[\d]*)\s(?<statusCode>[\d]*)\s(?<bytesRead>[\d]*)[^\d]*(?<activeConn>[\d]*)\/(?<frontendConn>[\d]*)\/(?<backendConn>[\d]*)\/(?<servConn>[\d]*)\/(?<retries>[\d]*)[^\"]*\"(?<httpReq>[^\"]*)'
+  transform:
+    node: '#{Socket.gethostname}'
+    file: '${tag_suffix[1]}'
+    _plugin: 'haproxy'
+    _documentType: 'haproxyLogs'
+    time: ${require 'time'; time.to_time.to_i * 1000}
+  match:
+    flush_interval: 30s
+
+# elasticserach logging mapping
+elasticsearch-general:
+  source:
+    '@type': tail
+    path: '/var/log/elasticsearch/master-master/es-cluster.log, /var/log/elasticsearch/node-0-node-0/es-cluster.log, /var/log/elasticsearch/node-1-node-1/es-cluster.log'
+    pos_file: '/var/log/td-agent/elasticsearch.pos'
+  multiline:
+    format_firstline: '/^[\[]([^\]]*)[\]]/'
+    expression:
+      - '/^[\[](?<time>[^\]]*)[\]]\[(?<level>[^\]]*)\]\[(?<logging_class>[^\]]*)\] (?<message>[\s\S]*)/'
+  transform:
+    node: '#{Socket.gethostname}'
+    file: '${tag_suffix[1]}'
+    _plugin: 'elasticsearch'
+    _documentType: 'ESLogs'
+    time: ${require 'time'; time.to_time.to_i * 1000}
+    logging_class: ${record['logging_class'].strip()}
+   # level: ${record['level'].strip()}
+    level: ${n_level='warning'; if record['level'].strip().downcase == 'warn' then n_level else record['level'].strip().downcase end}
+    message: ${record['message']}
+  match:
+    flush_interval: 30s
+
+# kafka logging mapping
+kafka:
+  source:
+    '@type': tail
+    path: '/opt/kafka/kafka_2.12-1.0.0/logs/server.log, /opt/kafka/kafka_2.12-1.0.0/logs/controller.log, /opt/kafka/kafka_2.12-1.0.0/logs/state-change.log'
+    pos_file: '/var/log/td-agent/kafka.pos'
+  multiline:
+    format_firstline: '/^[\[]([^\]]*)[\]] ([^\ ]*)/'
+    expression:
+      - '/^[\[](?<time>[^\]]*)[\]] (?<level>[^\ ]*)(( \[(?<process>[^\ ]*)\ (?<process_id>[^\]]*)\])| )(?<message>.*)/'
+  transform:
+    node: '#{Socket.gethostname}'
+    file: '${tag_suffix[1]}'
+    _plugin: 'kafka'
+    _documentType: 'kafkaLogs'
+    time: ${require 'time'; time.to_time.to_i * 1000}
+    level: ${n_level='warning'; if record['level'].downcase == 'warn' then n_level else record['level'].downcase end}
+    process: ${record['process']}
+    process_id: ${if record['process_id'] then record['process_id'].split('=')[1].split(' ')[0] else record['process_id'] end}
+    message: ${record['message']}
+  match:
+    flush_interval: 30s
+
+zookeeper:
+  source:
+    '@type': tail
+    path: '/opt/kafka/kafka_2.12-1.0.0/logs/server.log, /opt/kafka/kafka_2.12-1.0.0/logs/controller.log, /opt/kafka/kafka_2.12-1.0.0/logs/state-change.log'
+    pos_file: '/var/log/td-agent/zookeeper.pos'
+  multiline:
+    format_firstline: '/^[\[]([^\]]*)[\]] ([^\ ]*)/'
+    expression:
+      - '/^[\[](?<time>[^\]]*)[\]] (?<level>[^\ ]*)(( \[(?<process>[^\ ]*)\ (?<process_id>[^\]]*)\])| )(?<message>.*)/'
+  transform:
+    node: '#{Socket.gethostname}'
+    file: '${tag_suffix[1]}'
+    _plugin: 'zookeeper'
+    _documentType: 'zookeeperLogs'
+    time: ${require 'time'; time.to_time.to_i * 1000}
+    level: ${n_level='warning'; if record['level'].downcase == 'warn' then n_level else record['level'].downcase end}
+    process: ${record['process']}
+    process_id: ${if record['process_id'] then record['process_id'].split('=')[1].split(' ')[0] else record['process_id'] end}
+    message: ${record['message']}
+  match:
+    flush_interval: 30s
+
+# Mapping for ESA collected log
+esalogstore:
+  esalogsdownload:
+    '@type': exec
+    format: tsv
+    tag: ESALogsDownload
+    command: python /opt/configurator-exporter/config_handler/mapping/esalogstore.py
+    keys: ESALogsDownload
+    run_interval: 10s
+  source:
+    '@type': tail
+    path: '/var/log/esa_logs'
+    pos_file: '/var/log/td-agent/esa.pos'
+  parse:
+    '@type': regexp
+    expression: '(?<time>[\a-z]+\s[\a-z]+\s[\0-9\:]+) (?<level>\S+)\: (?<message>.*)'
+  transform:
+    file: '${tag_suffix[1]}'
+    _plugin: 'esalogstore'
+    _documentType: '${tag_suffix[6]}'
+    time: ${require 'time'; time.to_time.to_i * 1000}
+    level: ${record['level'].split(':').first().downcase}
+    message: ${record['message']}
+    _tag_uuid: "${tag_suffix[5].rpartition('_').last.split('.')[0]}"
+    _tag_Name: "${tag_suffix[5].rpartition('_').first}"
+  match:
+    flush_interval: 30s
+
+        # yarn resource manager logging mapping
+yarn-rm:
+  source:
+    '@type': tail
+    path: '/var/log/hadoop-yarn/yarn/yarn-yarn-resourcemanager-*.log'
+    pos_file: '/var/log/td-agent/yarn-rm.pos'
+  multiline:
+    format_firstline: '/^(?<time>\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2})\,[^ ]*[ ]*/'
+    expression:
+      - '/^(?<time>\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2})\,[^ ]*[ ]*(?<level>[^ ]*) (?<message>[\s\S]*)/'
+  transform:
+    node: '#{Socket.gethostname}'
+    file: '${tag_suffix[1]}'
+    _plugin: 'yarn'
+    _documentType: 'resourceManagerLog'
+    time: ${require 'time'; time.to_time.to_i * 1000}
+    level: ${n_level='warning'; if record['level'].strip().downcase == 'warn' then n_level else record['level'].strip().downcase end}
+    message: ${record['message']}
+  match:
+    flush_interval: 30s
+
+# yarn resource manager audit logging mapping
+yarn-audit:
+  source:
+    '@type': tail
+    path: '/var/log/hadoop-yarn/yarn/rm-audit.log'
+    pos_file: '/var/log/td-agent/rm-audit.pos'
+  multiline:
+    format_firstline: '/^(?<time>\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2})\,[^ ]*[ ]*/'
+    expression:
+      - '/^(?<time>\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2})\,[^ ]*[ ]*(?<level>[^ ]*) (?<message>[\s\S]*)/'
+  transform:
+    node: '#{Socket.gethostname}'
+    file: '${tag_suffix[1]}'
+    _plugin: 'yarn'
+    _documentType: 'yarnAuditLog'
+    time: ${require 'time'; time.to_time.to_i * 1000}
+    level: ${n_level='warning'; if record['level'].strip().downcase == 'warn' then n_level else record['level'].strip().downcase end}
+    message: ${record['message']}
+  match:
+    flush_interval: 30s
+
+#Yarn timeline server  logging mapping
+yarn-timeline:
+  source:
+    '@type': tail
+    path: '/var/log/hadoop-yarn/yarn/yarn-yarn-timelineserver-*.log'
+    pos_file: '/var/log/td-agent/yarn-yarn-timelineserver.pos'
+  multiline:
+    format_firstline: '/^(?<time>\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2})\,[^ ]*[ ]*/'
+    expression:
+      - '/^(?<time>\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2})\,[^ ]*[ ]*(?<level>[^ ]*) (?<message>[\s\S]*)/'
+  transform:
+    node: '#{Socket.gethostname}'
+    file: '${tag_suffix[1]}'
+    _plugin: 'yarn'
+    _documentType: 'timeLineServerLog'
+    time: ${require 'time'; time.to_time.to_i * 1000}
+    level: ${n_level='warning'; if record['level'].strip().downcase == 'warn' then n_level else record['level'].strip().downcase end}
+    message: ${record['message']}
+  match:
+    flush_interval: 30s
+
+# hdfs audit logging mapping
+hdfs-audit:
+  source:
+    '@type': tail
+    path: '/var/log/hadoop/hdfs/hdfs-audit.log'
+    pos_file: '/var/log/td-agent/hdfs-audit.pos'
+  parse:
+    '@type': multi_format
+    expressions:
+     - '/^(?<time>\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2})\,[^ ]*[ ]*(?<level>[^ ]*)\s+(?<message>.*)$/'
+     - '/^(?<time>\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2})\,[^ ]*[ ]*(?<level>[^ ]*)\s+(?<message>.*)/'
+  transform:
+    node: '#{Socket.gethostname}'
+    file: '${tag_suffix[1]}'
+    _plugin: 'hdfs'
+    _documentType: 'hdfsAuditLog'
+    time: ${require 'time'; time.to_time.to_i * 1000}
+    level: ${n_level='warning'; if record['level'].strip().downcase == 'warn' then n_level else record['level'].strip().downcase end}
+    message: ${record['message']}
+  match:
+    flush_interval: 30s
+
+# hdfs namenode logging mapping
+hdfs-namenode:
+  source:
+    '@type': tail
+    path: '/var/log/hadoop/hdfs/hadoop-hdfs-namenode-*.log'
+    pos_file: '/var/log/td-agent/hadoop-hdfs-namenode.log.pos'
+  multiline:
+    format_firstline: '/^(?<time>\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2})\,[^ ]*[ ]*/'
+    expression:
+      - '/^(?<time>\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2})\,[^ ]*[ ]*(?<level>[^ ]*) (?<message>[\s\S]*)/'
+  transform:
+    node: '#{Socket.gethostname}'
+    file: '${tag_suffix[1]}'
+    _plugin: 'hdfs'
+    _documentType: 'nameNodeLog'
+    time: ${require 'time'; time.to_time.to_i * 1000}
+    level: ${n_level='warning'; if record['level'].strip().downcase == 'warn' then n_level else record['level'].strip().downcase end}
+    message: ${record['message']}
+  match:
+    flush_interval: 30s
+
+
+# oozie audit logging mapping
+oozie-audit:
+  source:
+    '@type': tail
+    path: '/var/log/oozie/oozie-audit.log'
+    pos_file: '/var/log/td-agent/oozie-audit.log.pos'
+  parse:
+    '@type': regexp
+    expression: '^(?<time>\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2})\,[^ ]*[ ]*(?<level>[^ ]*)\s+(?<message>.*)'
+  transform:
+    node: '#{Socket.gethostname}'
+    file: '${tag_suffix[1]}'
+    _plugin: 'oozie'
+    _documentType: 'oozieAuditLog'
+    time: ${require 'time'; time.to_time.to_i * 1000}
+    level: ${n_level='warning'; if record['level'].strip().downcase == 'warn' then n_level else record['level'].strip().downcase end}
+    message: ${record['message']}
+  match:
+    flush_interval: 30s
+
+# oozie Error logging mapping
+oozie-error-logs:
+  source:
+    '@type': tail
+    path: '/var/log/oozie/oozie-error.log'
+    pos_file: '/var/log/td-agent/oozie-error.pos'
+  parse:
+    '@type': regexp
+    expression: '^(?<time>\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2})\,[^ ]*[ ]*(?<level>[^ ]*)\s+(?<message>.*)'
+  transform:
+    node: '#{Socket.gethostname}'
+    file: '${tag_suffix[1]}'
+    _plugin: 'oozie'
+    _documentType: 'oozieErrorLog'
+    time: ${require 'time'; time.to_time.to_i * 1000}
+    level: ${n_level='warning'; if record['level'].strip().downcase == 'warn' then n_level else record['level'].strip().downcase end}
+    message: ${record['message']}
+  match:
+    flush_interval: 30s
+
+# oozie logging mapping
+oozie-logs:
+  source:
+    '@type': tail
+    path: '/var/log/oozie/oozie.log'
+    pos_file: '/var/log/td-agent/oozie.pos'
+  parse:
+    '@type': regexp
+    expression: '^(?<time>\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2})\,[^ ]*[ ]*(?<level>[^ ]*)\s+(?<message>.*)'
+  transform:
+    node: '#{Socket.gethostname}'
+    file: '${tag_suffix[1]}'
+    _plugin: 'oozie'
+    _documentType: 'oozieLog'
+    time: ${require 'time'; time.to_time.to_i * 1000}
+    level: ${n_level='warning'; if record['level'].strip().downcase == 'warn' then n_level else record['level'].strip().downcase end}
+    message: ${record['message']}
+  match:
+    flush_interval: 30s
+
+# yarn resource manager logging mapping
+hdfs-journalnode-manager:
+  source:
+    '@type': tail
+    path: '/var/log/hadoop/hdfs/hadoop-hdfs-journalnode-*.log'
+    pos_file: '/var/log/td-agent/hadoop-hdfs-journalnode.log'
+  multiline:
+    format_firstline: '/^(?<time>\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2})\,[^ ]*[ ]*/'
+    expression:
+      - '/^(?<time>\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2})\,[^ ]*[ ]*(?<level>[^ ]*) (?<message>[\s\S]*)/'
+  transform:
+    node: '#{Socket.gethostname}'
+    file: '${tag_suffix[1]}'
+    _plugin: 'hdfs'
+    _documentType: 'journalNodeLog'
+    time: ${require 'time'; time.to_time.to_i * 1000}
+    level: ${n_level='warning'; if record['level'].strip().downcase == 'warn' then n_level else record['level'].strip().downcase end}
+    message: ${record['message']}
+  match:
+    flush_interval: 30s
+
+#hdfs zoopkeeper manager logs
+hdfs-zkfc-manager:
+  source:
+    '@type': tail
+    path: '/var/log/hadoop/hdfs/hadoop-hdfs-zkfc-*.log'
+    pos_file: '/var/log/td-agent/hadoop-hdfs-zkfc.log'
+  multiline:
+    format_firstline: '/^(?<time>\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2})\,[^ ]*[ ]*/'
+    expression:
+      - '/^(?<time>\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2})\,[^ ]*[ ]*(?<level>[^ ]*) (?<message>[\s\S]*)/'
+  transform:
+    node: '#{Socket.gethostname}'
+    file: '${tag_suffix[1]}'
+    _plugin: 'oozie'
+    _documentType: 'hdfsZkfcLog'
+    time: ${require 'time'; time.to_time.to_i * 1000}
+    level: ${n_level='warning'; if record['level'].strip().downcase == 'warn' then n_level else record['level'].strip().downcase end}
+    message: ${record['message']}
+  match:
+    flush_interval: 30s
+
+#Oozie jpa logs
+oozie-jpa:
+  source:
+    '@type': tail
+    path: '/var/log/oozie/oozie-jpa.log'
+    pos_file: '/var/log/td-agent/oozie-jpa.log.pos'
+  multiline:
+    format_firstline: '/^(?<time>\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2})\,[^ ]*[ ]*/'
+    expression:
+      - '/^(?<time>\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2})\,[^ ]*[ ]*(?<level>[^ ]*) (?<message>[\s\S]*)/'
+  transform:
+    node: '#{Socket.gethostname}'
+    file: '${tag_suffix[1]}'
+    _plugin: 'oozie'
+    _documentType: 'oozieJpaLog'
+    time: ${require 'time'; time.to_time.to_i * 1000}
+    level: ${n_level='warning'; if record['level'].strip().downcase == 'warn' then n_level else record['level'].strip().downcase end}
+    message: ${record['message']}
+  match:
+    flush_interval: 30s
+
+#Oozie instrumentation logs
+oozie-instrumentation:
+  source:
+    '@type': tail
+    path: '/var/log/oozie/oozie-instrumentation.log'
+    pos_file: '/var/log/td-agent/oozie-instrumentation.log.pos'
+  multiline:
+    format_firstline: '/^(?<time>\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2})\,[^ ]*[ ]*/'
+    expression:
+      - '/^(?<time>\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2})\,[^ ]*[ ]*(?<level>[^ ]*) (?<message>[\s\S]*)/'
+  transform:
+    node: '#{Socket.gethostname}'
+    file: '${tag_suffix[1]}'
+    _plugin: 'oozie'
+    _documentType: 'oozieInstrumentationLog'
+    time: ${require 'time'; time.to_time.to_i * 1000}
+    level: ${n_level='warning'; if record['level'].strip().downcase == 'warn' then n_level else record['level'].strip().downcase end}
+    message: ${record['message']}
+  match:
+    flush_interval: 30s
+
+#Oozie ops logs
+oozie-ops:
+  source:
+    '@type': tail
+    path: '/var/log/oozie/oozie-ops.log'
+    pos_file: '/var/log/td-agent/oozie-ops.log.pos'
+  multiline:
+    format_firstline: '/^(?<time>\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2})\,[^ ]*[ ]*/'
+    expression:
+      - '/^(?<time>\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2})\,[^ ]*[ ]*(?<level>[^ ]*) (?<message>[\s\S]*)/'
+  transform:
+    node: '#{Socket.gethostname}'
+    file: '${tag_suffix[1]}'
+    _plugin: 'oozie'
+    _documentType: 'oozieOpsLog'
+    time: ${require 'time'; time.to_time.to_i * 1000}
+    level: ${n_level='warning'; if record['level'].strip().downcase == 'warn' then n_level else record['level'].strip().downcase end}
+    message: ${record['message']}
+  match:
+    flush_interval: 30s
+
+hdfs-datanode:
+  source:
+    '@type': tail
+    path: '/var/log/hadoop/hdfs/hadoop-hdfs-datanode-*.log'
+    pos_file: '/var/log/td-agent/hadoop-hdfs-datanode.pos'
+  multiline:
+    format_firstline: '/^(?<time>\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2})\,[^ ]*[ ]*/'
+    expression:
+      - '/^(?<time>\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2})\,[^ ]*[ ]*(?<level>[^ ]*) (?<message>[\s\S]*)/'
+  transform:
+    node: '#{Socket.gethostname}'
+    file: '${tag_suffix[1]}'
+    _plugin: 'hdfs'
+    _documentType: 'dataNodeLog'
+    time: ${require 'time'; time.to_time.to_i * 1000}
+    level: ${n_level='warning'; if record['level'].strip().downcase == 'warn' then n_level else record['level'].strip().downcase end}
+    message: ${record['message']}
+  match:
+    flush_interval: 30s
+
+jmeter:
+  collection_type: metric
+  source:
+    '@type': tail
+    'format': csv
+    'path': '/home/centos/log.jtl'
+    'pos_file': '/var/log/td-agent/jmeter.pos'
+    'keys': timeStamp,elapsed,label,responseCode,responseMessage,threadName,dataType,requestSuccess,failureMessage,bytes,sentBytes,grpThreads,allThreads,URL,Latency,IdleTime,Connect
+    'types': elapsed:float,bytes:integer,sentBytes:integer,IdleTime:float,Connect:float
+  transform:
+    node: '#{Socket.gethostname}'
+    file: '${tag_suffix[1]}'
+    _plugin: 'jmeter'
+    _documentType: 'jmeterLogs'
+    time: ${require 'time'; time.to_time.to_i * 1000}
+  match:
+    flush_interval: 30s

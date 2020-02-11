@@ -1,0 +1,53 @@
+diff --git a/config_handler/mapping/logging_plugins_mapping.yaml b/config_handler/mapping/logging_plugins_mapping.yaml
+index ffa5cc6..894cb5a 100644
+--- a/config_handler/mapping/logging_plugins_mapping.yaml
++++ b/config_handler/mapping/logging_plugins_mapping.yaml
+@@ -151,4 +151,46 @@ linux-syslog:
+   match:
+     flush_interval: 30s
+ 
+-default_flush_interval: 60s
+\ No newline at end of file
++default_flush_interval: 60s
++
++
++nginx-error:
++   source:
++     '@type': tail
++     format: nginx
++     path: '/var/log/nginx/error.log'
++     pos_file: '/var/log/td-agent/nginx_error.pos'
++   parse:
++     '@type': regexp
++     time_format: '%Y/%m/%d %H:%M:%S'
++     expression: '(?<time>[^ ]* [^ ]*)\s*\[(?<level>\S+)\]\s*(?<pid>\d+)#(?<tid>\d+)(?<message>.*)$'
++   transform:
++     node: '#{Socket.gethostname}'
++     file: '${tag_suffix[1]}'
++     _plugin: 'nginx'
++     _documentType: 'error'
++     time: ${require 'time'; time.to_time.to_i}
++   match:
++     flush_interval: 30s
++
++
++nginx-access:
++   source:
++     '@type': tail
++     format: nginx
++     path: '/var/log/nginx/access.log'
++     pos_file: '/var/log/td-agent/nginx_access.pos'
++   parse:
++     '@type': regexp
++     time_format: '%d/%b/%Y:%H:%M:%S %z'
++     expression: '^(?<host>[^ ]*) [^ ]* (?<user>[^ ]*) \[(?<time>[^\]]*)\] "(?<method>\S+)(?: +(?<path>[^ ]*) +\S*)?" (?<code>[^ ]*) (?<size>[^ ]*)(?: "(?<referer>[^\"]*)" "(?<agent>[^\"]*)" (?<gzip_ratio>[^ ]*))?$'
++     types: 'gzip_ratio:integer'
++   transform:
++     node: '#{Socket.gethostname}'
++     file: '${tag_suffix[1]}'
++     _plugin: 'nginx'
++     _documentType: 'access'
++     time: ${require 'time'; time.to_time.to_i}
++     level: 'info'
++   match:
++     flush_interval: 30s

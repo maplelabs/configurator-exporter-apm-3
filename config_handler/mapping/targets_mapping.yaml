@@ -1,0 +1,12 @@
+#mappign files for targets
+
+elasticsearch:
+ name: "name of elastic search clluster"
+ type: elasticsearch
+ host: "Host Ip required"
+ port: "Port required "
+ index: "Index required"
+ protocol: "Protocol required"
+ store_type: "Store type required"
+ username: "Username required"
+ password: "Password required"

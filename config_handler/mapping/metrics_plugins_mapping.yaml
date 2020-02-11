@@ -1,0 +1,944 @@
+# mapping file provide abtraction for different collectd plugins
+
+# GLobal abstraction for linuxstatic and linux_dynamics plugins
+linux:
+ - name: cpu_static
+   interval: 300
+   config:
+    nodeType: "Type of Node Virtual/Physical"
+ - name: disk_stat
+   interval: 10
+ - name: ram_util
+   interval: 10
+ - name: cpu_util
+   interval: 10
+ - name: tcp_stats
+   interval: 10
+ - name: nic_stats
+   interval: 10
+
+linux_stats:
+ - name: linux_stats
+   interval: 10
+
+## linux static plugin mapping to cpu_static
+#linux_static:
+# - name: cpu_static
+#   interval: 10
+#   config:
+#    nodeType: "Type of Node Virtual/Physical"
+#
+## linux dynamic plugin mapping to disk_stat, ram_util, cpu_util, tcp_stats, nic_stats
+#linux_dynamic:
+# - name: disk_stat
+#   interval: 300
+# - name: ram_util
+#   interval: 300
+# - name: cpu_util
+#   interval: 10
+# - name: tcp_stats
+#   interval: 300
+# - name: nic_stats
+#   interval: 300
+
+# abstraction for apache log and perf plugins with jvm stats
+apache:
+  - name: apache
+    interval: 300
+    config:
+    - Mandatory: true
+      min: ''
+      dataType: string
+      max: ''
+      defaultValue: '8080'
+      tooltip: "port in which apache service is exposed on localhost"
+      label: Port
+      fieldName: port
+    - Mandatory: true
+      min: ""
+      dataType: string
+      max: ""
+      defaultValue: "server-status?auto"
+      tooltip: "location to get apache stats e.g. server_status"
+      label: Location
+      fieldName: location
+    - Mandatory: true
+      min: ""
+      dataType: string
+      max: ""
+      defaultValue: "false"
+      tooltip: "server is listening on HTTP/HTTPS protocol"
+      label: Secure
+      fieldName: secure
+#  - name: apache_trans
+#    interval: 100
+#    config:
+#      accessLog: "accessLog path for apache"
+#  - name: jvm_stats
+#    interval: 300
+#    config:
+#      process: "name of java process"
+
+# apache perf plugin mapping to apache_perf
+#apache_perf:
+# - name: apache_perf
+#   interval: 300
+#   config:
+#    port: "port in which apache service is exposed on localhost"
+#    location: "location to get apache stats e.g. server_status"
+#    secure: "true for https and false for http"
+#
+## apache trans plugin mapping to apache_trans
+#apache_trans:
+# - name: apache_trans
+#   interval: 100
+#   config:
+#    accessLog: "accessLog path for apache"
+
+libvirt:
+  - name: libvirt_static
+    interval: 10
+  - name: libvirt_interface
+    interval: 10
+  - name: libvirt_compute
+    interval: 10
+  - name: libvirt_disk
+    interval: 10
+
+## mapping for libvirt static plugin
+#libvirt_static:
+# - name: libvirt_static
+#   interval: 10
+#
+## mapping for libvirt dynamic
+#libvirt_dynamic:
+# - name: libvirt_interface
+#   interval: 10
+# - name: libvirt_compute
+#   interval: 10
+# - name: libvirt_disk
+#   interval: 10
+
+# mapping for mysql plugin
+mysql:
+ - name: mysql
+   interval: 300
+   config:
+   - Mandatory: true
+     min: ''
+     dataType: string
+     max: ''
+     defaultValue: "root"
+     tooltip: Username for MySQL server
+     label: Username
+     fieldName: user
+   - Mandatory: true
+     min: ''
+     dataType: password
+     max: ''
+     defaultValue: "maplelabs"
+     tooltip: Password for MySQL server
+     label: Password
+     fieldName: password
+   - Mandatory: true
+     min: ''
+     dataType: string
+     max: ''
+     defaultValue: 127.0.0.1
+     tooltip: MySql Host IP
+     label: Host Ip
+     fieldName: host
+   - Mandatory: true
+     fieldName: documentsTypes
+     tooltip: document Types to be collected
+     label: Document Types
+     dataType: list
+     multiselect: true
+     defaultValue: ['databaseDetails', 'serverDetails', 'tableDetails']
+     options:
+      - label: 'databaseDetails'
+        value: 'databaseDetails'
+      - label: 'serverDetails'
+        value: 'serverDetails'
+      - label: 'tableDetails'
+        value: 'tableDetails'
+     min: ''
+     max: ''
+
+
+#mapping for Mongo
+mongod:
+- config:
+  - Mandatory: true
+    dataType: string
+    defaultValue: root
+    fieldName: user
+    label: Username
+    max: ''
+    min: ''
+    tooltip: Username for Mongo server
+  - Mandatory: true
+    dataType: password
+    defaultValue: maplelabs
+    fieldName: password
+    label: Password
+    max: ''
+    min: ''
+    tooltip: Password for Mongo server
+  - Mandatory: true
+    dataType: string
+    defaultValue: '27017'
+    fieldName: port
+    label: Port
+    max: ''
+    min: ''
+    tooltip: port in which mongod service is exposed on localhost
+  - Mandatory: true
+    dataType: list
+    defaultValue:
+    - serverDetails
+    - tableDetails
+    - databaseDetails
+    fieldName: documentsTypes
+    label: DocumentsTypes
+    max: ''
+    min: ''
+    multiselect: true
+    options:
+    - label: serverDetails
+      value: serverDetails
+    - label: tableDetails
+      value: tableDetails
+    - label: databaseDetails
+      value: databaseDetails
+    tooltip: document Types to be collected
+  interval: 300
+  name: mongod
+
+
+
+# mapping for redis plugin
+redisdb:
+ - name: redisdb
+   interval: 60
+   config:
+   - Mandatory: true
+     min: ''
+     dataType: string
+     max: ''
+     defaultValue: '6379'
+     tooltip: Redis Host Port
+     label: Host Port
+     fieldName: port
+   - Mandatory: true
+     min: ''
+     dataType: password
+     max: ''
+     defaultValue: "fusion12"
+     tooltip: Password for Redis server
+     label: Password
+     fieldName: password
+   - Mandatory: true
+     fieldName: documentsTypes
+     tooltip: document Types to be collected
+     label: Document Types
+     dataType: list
+     multiselect: true
+     defaultValue: ['redisDetails', 'redisStat', 'redisPersistence', 'keyspaceStat']
+     options:
+      - label: 'redisDetails'
+        value: 'redisDetails'
+      - label: 'redisStat'
+        value: 'redisStat'
+      - label: 'redisPersistence'
+        value: 'redisPersistence'
+      - label: 'keyspaceStat'
+        value: 'keyspaceStat'
+     min: ''
+     max: ''
+
+# mapping for tomcat plugin
+tomcat:
+ - name: tomcat
+   interval: 300
+   config:
+   - Mandatory: true
+     fieldName: documentsTypes
+     tooltip: document Types to be collected
+     label: Document Types
+     dataType: list
+     multiselect: true
+     defaultValue: ['tomcatStats', 'requestProcessorStats', 'jvmStats', 'contextStats']
+     options:
+      - label: 'tomcatStats'
+        value: 'tomcatStats'
+      - label: 'requestProcessorStats'
+        value: 'requestProcessorStats'
+      - label: 'jvmStats'
+        value: 'jvmStats'
+      - label: 'contextStats'
+        value: 'contextStats'
+     min: ''
+     max: ''
+     
+# mapping for java plugin
+jvm:
+ - name: jvm
+   interval: 300
+   config:
+   - Mandatory: true
+     min: ''
+     dataType: string
+     max: ''
+     defaultValue: '*'
+     tooltip: Name of java process
+     label: Process
+     fieldName: process
+
+# mapping for kafka_topic plugin
+kafkatopic:
+ - name: kafkatopic
+   interval: 300
+   config:
+   - Mandatory: true
+     min: ''
+     dataType: Integer
+     max: ''
+     defaultValue: 9092
+     tooltip: Listening kafka port
+     label: Port
+     fieldName: port
+   - Mandatory: true
+     fieldName: documentsTypes
+     tooltip: document Types to be collected
+     label: Document Types
+     dataType: list
+     multiselect: true
+     defaultValue: ['kafkaStats', 'partitionStats', 'topicStats', 'consumerStats']
+     options:
+      - label: 'kafkaStats'
+        value: 'kafkaStats'
+      - label: 'partitionStats'
+        value: 'partitionStats'
+      - label: 'topicStats'
+        value: 'topicStats'
+      - label: 'consumerStats'
+        value: 'consumerStats'
+     min: ''
+     max: ''
+
+# mapping for kafka_jmx plugin
+kafkajmx:
+ - name: kafkajmx
+   interval: 300
+   config:
+   - Mandatory: true
+     min: ''
+     dataType: string
+     max: ''
+     defaultValue: 'kafka.Kafka'
+     tooltip: Name of java process
+     label: Process
+     fieldName: process
+
+# mapping for zookeeper_jmx plugin
+zookeeperjmx:
+ - name: zookeeperjmx
+   interval: 300
+   config:
+   - Mandatory: true
+     min: ''
+     dataType: string
+     max: ''
+     defaultValue: 'localhost'
+     tooltip: Listener binding IP
+     label: Listener IP
+     fieldName: listener_ip
+   - Mandatory: true
+     min: ''
+     dataType: Integer
+     max: ''
+     defaultValue: 2181
+     tooltip: Listening zookeeper port
+     label: Port
+     fieldName: port
+   - Mandatory: true
+     fieldName: documentsTypes
+     tooltip: document Types to be collected
+     label: Document Types
+     dataType: list
+     multiselect: true
+     defaultValue: ['jmxStats', 'zookeeperStats']
+     options:
+      - label: 'jmxStats'
+        value: 'jmxStats'
+      - label: 'zookeeperStats'
+        value: 'zookeeperStats'
+     min: ''
+     max: ''
+
+# mapping for elasticsearch plugin
+elasticsearch:
+ - name: elasticsearch
+   interval: 300
+   config:
+   - Mandatory: true
+     min: ''
+     dataType: Integer
+     max: ''
+     defaultValue: 9200
+     tooltip: Port on which elasticsearch master node is listening.
+     label: Port
+     fieldName: port
+   - Mandatory: true
+     fieldName: documentsTypes
+     tooltip: document Types to be collected
+     label: DocumentsTypes
+     dataType: list
+     multiselect: true
+     defaultValue: ['clusterStats', 'nodeStats', 'indexStats']
+     options:
+      - label: 'clusterStats'
+        value: 'clusterStats'
+      - label: 'nodeStats'
+        value: 'nodeStats'
+      - label: 'indexStats'
+        value: 'indexStats'
+     min: ''
+     max: ''
+
+# mapping for Postgres plugin
+postgres:
+ - name: postgres
+   interval: 60
+   config:
+   - Mandatory: true
+     min: ''
+     dataType: string
+     max: ''
+     defaultValue: postgres
+     tooltip: Username for Postgres server
+     label: Username
+     fieldName: user
+   - Mandatory: true
+     min: ''
+     dataType: password
+     max: ''
+     defaultValue: "postgres"
+     tooltip: Password for Postgres server
+     label: Password
+     fieldName: password
+   - Mandatory: true
+     min: ''
+     dataType: Integer
+     max: ''
+     defaultValue: 5432
+     tooltip: Port
+     label: Port
+     fieldName: port
+   - Mandatory: true
+     hidden: true
+     min: ''
+     dataType: Integer
+     max: ''
+     defaultValue: 60
+     tooltip: Polling Interval
+     label: Interval
+     fieldName: interval
+   - Mandatory: true
+     fieldName: documentsTypes
+     tooltip: document Types to be collected
+     label: Document Types
+     dataType: list
+     multiselect: true
+     defaultValue: ['databaseDetails', 'indexDetails', 'queryDetails', 'serverDetails', 'tableDetails']
+     options:
+      - label: 'databaseDetails'
+        value: 'databaseDetails'
+      - label: 'indexDetails'
+        value: 'indexDetails'
+      - label: 'queryDetails'
+        value: 'queryDetails'
+      - label: 'serverDetails'
+        value: 'serverDetails'
+      - label: 'tableDetails'
+        value: 'tableDetails'
+     min: ''
+     max: ''
+
+# mapping for haproxy plugin
+haproxy:
+ - name: haproxy
+   interval: 300
+   config:
+   - Mandatory: true
+     fieldName: documentsTypes
+     tooltip: document Types to be collected
+     label: Document Types
+     dataType: list
+     multiselect: true
+     defaultValue: ['frontendStats', 'backendStats', 'haproxyStats']
+     options:
+      - label: 'frontendStats'
+        value: 'frontendStats'
+      - label: 'backendStats'
+        value: 'backendStats'
+      - label: 'haproxyStats'
+        value: 'haproxyStats'
+     min: ''
+     max: ''
+
+# abstraction for nginx 
+nginx:
+  - name: nginx
+    interval: 300
+    config:
+    - Mandatory: true
+      min: ''
+      dataType: string
+      max: ''
+      defaultValue: '80'
+      tooltip: "port in which nginx service is exposed on localhost"
+      label: Port
+      fieldName: port
+    - Mandatory: true
+      min: ""
+      dataType: string
+      max: ""
+      defaultValue: "stats"
+      tooltip: "location to get nginx stats e.g. stats"
+      label: Location
+      fieldName: location
+    - Mandatory: true
+      min: ""
+      dataType: string
+      max: ""
+      defaultValue: "false"
+      tooltip: "true for https and false for http"
+      label: Secure
+      fieldName: secure
+
+# abstraction for nginx-plus
+nginxplus:
+  - name: nginxplus
+    interval: 300
+
+#results of tpcc
+tpcc:
+   - name: tpcc
+     interval: 300
+
+#results of hxConnect
+hxconnect:
+- name: hxconnect
+  interval: 60
+  config:
+  - Mandatory: true
+    min: ''
+    dataType: string
+    max: ''
+    defaultValue: 'ucs864cip.eng.storvisor.com'
+    tooltip: "IP for hx connect"
+    label: Hx Connect IP
+    fieldName: hx_connect_ip
+
+#mapping for topstats plugin
+topstats:
+ - name: topstats
+   interval: 10
+   config:
+   - label: Resource
+     fieldName: resource
+     tooltip: Utilization type based on which top command result is grepped
+     Mandatory: true
+     dataType: list
+     multiselect: false
+     defaultValue: 'CPU'
+     options:
+      - label: 'Top 5 CPU util'
+        value: 'CPU'
+      - label: 'Top 5 RAM util'
+        value: 'MEM'
+      - label: 'Process list/Regexp'
+        value: 'process'
+     min: ''
+     max: ''
+   - label: Process name list/Regular expression
+     fieldName: process
+     tooltip: Process to be monitored
+     Mandatory: true
+     dataType: string
+     defaultValue: '*'
+     min: ''
+     max: ''
+
+#mapping for cassandra plugin
+cassandra:
+ - name: cassandra
+   interval: 300
+
+#mapping for oozie plugin
+oozie:
+ - name: oozie
+   interval: 300
+   config:
+   - label: Use rest api
+     fieldName: use_rest_api
+     tooltip: use rest api
+     Mandatory: true
+     dataType: string
+     defaultValue: '0'
+     min: ''
+     max: ''
+   - Mandatory: true
+     min: ''
+     dataType: string
+     max: ''
+     defaultValue: "admin"
+     tooltip: Username for ambari server
+     label: ambari_username
+     fieldName: user
+   - Mandatory: true
+     min: ''
+     dataType: password
+     max: ''
+     defaultValue: "MapleAdmin123$"
+     tooltip: Password for ambari server
+     label: Password
+     fieldName: password
+
+#mapping for yarn_stats plugin
+yarn:
+ - name: yarn
+   interval: 300
+   config:
+   - Mandatory: true
+     min: ''
+     dataType: string
+     max: ''
+     defaultValue: "admin"
+     tooltip: Password for ambari server
+     label: ambari_username
+     fieldName: user
+   - Mandatory: true
+     min: ''
+     dataType: password
+     max: ''
+     defaultValue: "MapleAdmin123$"
+     tooltip: Password for ambari server
+     label: Password
+     fieldName: password
+
+
+#mapping for namenode plugin
+namenode:
+ - name: namenode
+   interval: 300
+   config:
+   - Mandatory: true
+     min: ''
+     dataType: string
+     max: ''
+     defaultValue: "admin"
+     tooltip: Password for ambari server
+     label: ambari_username
+     fieldName: user
+   - Mandatory: true
+     min: ''
+     dataType: password
+     max: ''
+     defaultValue: "MapleAdmin123$"
+     tooltip: Password for ambari server
+     label: Password
+     fieldName: password
+
+
+spark:
+ - name: spark
+   interval: 300
+   config:
+   - Mandatory: true
+     min: ''
+     dataType: string
+     max: ''
+     defaultValue: "admin"
+     tooltip: Password for ambari server
+     label: ambari_username
+     fieldName: user
+   - Mandatory: true
+     min: ''
+     dataType: password
+     max: ''
+     defaultValue: "MapleAdmin123$"
+     tooltip: Password for ambari server
+     label: Password
+     fieldName: password
+
+#mapping for jmeter plugin
+jmeter:
+ - name: jmeter
+   interval: 300
+   config:
+   - Mandatory: true
+     min: ''
+     dataType: string
+     max: ''
+     defaultValue: '/home/centos/log.jtl'
+     tooltip: Path for listener file
+     label: Listener path
+     fieldName: listener_path
+
+# mapping for elasticsearch plugin
+elasticsearchagent:
+ - name: elasticsearchagent
+   interval: 300
+   config:
+   - Mandatory: true
+     min: ''
+     dataType: Integer
+     max: ''
+     defaultValue: 9200
+     tooltip: Port on which elasticsearch master node is listening.
+     label: Port
+     fieldName: port
+   - Mandatory: true
+     min: ''
+     dataType: String
+     max: ''
+     defaultValue: 'http'
+     tooltip: SSL protocol used to connect to elasticsearch
+     label: ES Protocol
+     fieldName: es_protocol
+   - Mandatory: true
+     dataType: String
+     defaultValue: 'elastic'
+     fieldName: es_username
+     label: ES Username
+     max: ''
+     min: ''
+     tooltip: ES Username used to connect to elasticsearch
+   - Mandatory: true
+     dataType: password
+     defaultValue: 'elastic'
+     fieldName: es_password
+     label: ES Password
+     max: ''
+     min: ''
+     tooltip: ES Password used to connect to elasticsearch
+   - Mandatory: true
+     fieldName: documentsTypes
+     tooltip: document Types to be collected
+     label: DocumentsTypes
+     dataType: list
+     multiselect: true
+     defaultValue: ['clusterStats', 'nodeStats', 'indexStats']
+     options:
+      - label: 'clusterStats'
+        value: 'clusterStats'
+      - label: 'nodeStats'
+        value: 'nodeStats'
+      - label: 'indexStats'
+        value: 'indexStats'
+     min: ''
+     max: ''
+
+#mapping
+# mapping for prometheus linux
+prometheuslinux:
+ - name: prometheuslinux
+   interval: 300
+   config:
+   - Mandatory: true
+     min: ''
+     dataType: Integer
+     max: ''
+     defaultValue: 9100
+     tooltip: "port in which node-exporter is exposed on localhost"
+     label: Port
+     fieldName: port
+   - Mandatory: true
+     min: ''
+     dataType: Integer
+     max: ''
+     defaultValue: 300
+     tooltip: Polling Interval
+     label: Interval
+     fieldName: interval
+
+#mapping for prometheus mysql
+prometheusmysql:
+ - name: prometheusmysql
+   interval: 300
+   config:
+   - Mandatory: true
+     min: ''
+     dataType: Integer
+     max: ''
+     defaultValue: 9104
+     tooltip: "port in which mysql-exporter is exposed on localhost"
+     label: Port
+     fieldName: port
+   - Mandatory: true
+     min: ''
+     dataType: Integer
+     max: ''
+     defaultValue: 300
+     tooltip: Polling Interval
+     label: Interval
+     fieldName: interval
+
+# mapping for prometheus jmx
+prometheusjmx:
+ - name: prometheusjmx
+   interval: 300
+   config:
+   - Mandatory: true
+     min: ''
+     dataType: Integer
+     max: ''
+     defaultValue: 9404
+     tooltip: "port in which jmx-exporter is exposed on localhost"
+     label: Port
+     fieldName: port
+   - Mandatory: true
+     min: ''
+     dataType: Integer
+     max: ''
+     defaultValue: 300
+     tooltip: Polling Interval
+     label: Interval
+     fieldName: interval
+
+#mapping for prometheus elasticsearch
+prometheuselasticsearch:
+ - name: prometheuselasticsearch
+   interval: 300
+   config:
+   - Mandatory: true
+     min: ''
+     dataType: Integer
+     max: ''
+     defaultValue: 9206
+     tooltip: "port in which elasticsearch-exporter is exposed on localhost"
+     label: Port
+     fieldName: port
+   - Mandatory: true
+     min: ''
+     dataType: Integer
+     max: ''
+     defaultValue: 300
+     tooltip: Polling Interval
+     label: Interval
+     fieldName: interval
+
+# mapping for prometheus nginx
+prometheusnginx:
+ - name: prometheusnginx
+   interval: 300
+   config:
+   - Mandatory: true
+     min: ''
+     dataType: Integer
+     max: ''
+     defaultValue: 9113
+     tooltip: "port in which nginx-exporter is exposed on localhost"
+     label: Port
+     fieldName: port
+   - Mandatory: true
+     min: ''
+     dataType: Integer
+     max: ''
+     defaultValue: 300
+     tooltip: Polling Interval
+     label: Interval
+     fieldName: interval
+
+# mapping for prometheus jmeter
+prometheusjmeter:
+ - name: prometheusjmeter
+   interval: 300
+   config:
+   - Mandatory: true
+     min: ''
+     dataType: Integer
+     max: ''
+     defaultValue: 9270
+     tooltip: "port in which jmeter-exporter is exposed on localhost"
+     label: Port
+     fieldName: port
+   - Mandatory: true
+     min: ''
+     dataType: Integer
+     max: ''
+     defaultValue: 300
+     tooltip: Polling Interval
+     label: Interval
+     fieldName: interval
+
+
+nodejs:
+  - interval: 300
+    name: nodejs
+    config:
+    - Mandatory: true
+      dataType: Integer
+      defaultValue: 8080
+      fieldName: port
+      label: Port
+      max: ''
+      min: ''
+      tooltip: port in which nodejs is exposed on localhost
+    - Mandatory: true
+      dataType: Integer
+      defaultValue: 60
+      fieldName: interval
+      label: Interval
+      max: ''
+      min: ''
+      tooltip: Polling Interval
+
+nodejsapi:
+  - interval: 300
+    name: nodejsapi
+    config:
+    - Mandatory: true
+      dataType: Integer
+      defaultValue: 8080
+      fieldName: port
+      label: Port
+      max: ''
+      min: ''
+      tooltip: port in which nodejs is exposed on localhost
+    - Mandatory: true
+      dataType: Integer
+      defaultValue: 300
+      fieldName: interval
+      label: Interval
+      max: ''
+      min: ''
+      tooltip: Polling Interval
+
+
+#mapping for esa plugin
+#esalogstore:
+# - name: esalogstore
+#   interval: 60
+#   config:
+#   - label: Log Name
+#     fieldName: log_name
+#     tooltip: Name of the log file which has to be downloaded
+#     Mandatory: true
+#     dataType: list
+#     multiselect: true
+#     defaultValue: ['system_logs']
+#     options:
+#      - label: 'Authentication'
+#        value: 'authentication'
+#      - label: 'HTTP Logs'
+#        value: 'gui_logs'
+#      - label: 'IronPort Text Mail'
+#        value: 'mail_logs'
+#      - label: 'System Logs'
+#        value: 'system_logs'
+#     min: ''
+#     max: ''

@@ -1,0 +1,168 @@
+{
+	"variables": [],
+	"info": {
+		"name": "collectd exporter",
+		"_postman_id": "ae20248e-e095-ffee-31d1-754eccf9fb62",
+		"description": "",
+		"schema": "https://schema.getpostman.com/json/collection/v2.0.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "set config",
+			"request": {
+				"url": "http://{{IP}}:{{PORT}}/api/config",
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json",
+						"description": ""
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n  \"metrics\": {\n    \"enable\": true,\n    \"tags\": [],\n    \"plugins\": [\n      {\n        \"name\": \"linux_static\"\n      },\n       {\n        \"name\": \"wrong_plugin name\"\n      }\n    ],\n    \"targets\": [\n      {\n        \"type\": \"elasticsearch\",\n        \"index\": \"testcollector\",\n        \"host\": \"127.0.0.1\",\n        \"port\": \"9200\"\n      },\n      {\n        \"type\": \"wrong targets\",\n        \"index\": \"testcollector\",\n        \"host\": \"127.0.0.1\",\n        \"port\": \"9200\"\n      }\n       \n    ]\n  },\n  \"logging\": {\n    \"enable\": true,\n    \"tags\": [],\n    \"plugins\": [\n      {\n        \"name\": \"syslog\",\n        \"filter\": [\n          \"ALL\"\n        ]\n      },\n      {\n        \"name\": \"wrong logging plugin\",\n        \"filter\": [\n          \"ERROR\"\n        ]\n      }\n    ],\n    \"targets\": [\n      {\n        \"type\": \"wrong targets\",\n        \"index\": \"testlogger\",\n        \"host\": \"127.0.0.1\",\n        \"port\": \"9200\"\n      }\n    ]\n  }\n}"
+				},
+				"description": ""
+			},
+			"response": []
+		},
+		{
+			"name": "get config",
+			"request": {
+				"url": "http://{{IP}}:{{PORT}}/api/config/params",
+				"method": "GET",
+				"header": [],
+				"body": {},
+				"description": ""
+			},
+			"response": []
+		},
+		{
+			"name": "start stop colletd",
+			"request": {
+				"url": "http://{{IP}}:{{PORT}}/api/collectd/process",
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json",
+						"description": ""
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n  \"enable\":true\n}"
+				},
+				"description": ""
+			},
+			"response": []
+		},
+		{
+			"name": "get the collectd status",
+			"request": {
+				"url": "http://10.0.2.15:9000/api/collectd/process",
+				"method": "GET",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json",
+						"description": ""
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n  \"enable\": false\n}"
+				},
+				"description": ""
+			},
+			"response": []
+		},
+		{
+			"name": "get stats",
+			"request": {
+				"url": "http://10.0.2.15:9000/api/collectd/stats",
+				"method": "GET",
+				"header": [],
+				"body": {},
+				"description": ""
+			},
+			"response": []
+		},
+		{
+			"name": "fluentd status",
+			"request": {
+				"url": "http://10.0.2.15:9000/api/fluentd/process",
+				"method": "GET",
+				"header": [],
+				"body": {},
+				"description": ""
+			},
+			"response": []
+		},
+		{
+			"name": "fluentd enable",
+			"request": {
+				"url": "http://10.0.2.15:9000/api/fluentd/process",
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json",
+						"description": ""
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n\"enable\": false\n}"
+				},
+				"description": ""
+			},
+			"response": []
+		},
+		{
+			"name": "Get the Params details",
+			"request": {
+				"url": "http://{{IP}}:{{PORT}}/api/config/params",
+				"method": "GET",
+				"header": [],
+				"body": {},
+				"description": ""
+			},
+			"response": []
+		},
+		{
+			"name": "Supported targets",
+			"request": {
+				"url": "http://{{IP}}:{{PORT}}/api/config/supported_targets",
+				"method": "GET",
+				"header": [],
+				"body": {},
+				"description": ""
+			},
+			"response": []
+		},
+		{
+			"name": "Supported Plugins",
+			"request": {
+				"url": "http://{{IP}}:{{PORT}}/api/config/supported_plugins",
+				"method": "GET",
+				"header": [],
+				"body": {},
+				"description": ""
+			},
+			"response": []
+		},
+		{
+			"name": "Get mapping content",
+			"request": {
+				"url": "http://{{IP}}:{{PORT}}/api/config/mapping",
+				"method": "GET",
+				"header": [],
+				"body": {},
+				"description": ""
+			},
+			"response": []
+		}
+	]
+}
