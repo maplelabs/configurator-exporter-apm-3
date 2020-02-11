@@ -1,6 +1,6 @@
 mako==0.9.1
 web.py==0.38
-requests==2.10.0
+requests==2.20.0
 kafka-python==1.4.2
 elasticsearch>=6.0.0,<7.0.0
 pytz
